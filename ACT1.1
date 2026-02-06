@@ -1,11 +1,124 @@
-from gpiozero import LED
-from time import sleep
+#!/usr/bin/env python3
+"""
+Activity 1: LED Sequence Control for Raspberry Pi 5
+Using GPIO Zero - Tested and working
+"""
 
-print("Testing GPIO Zero on Pi 5...")
-led = LED(15)  # Use your green LED pin
-led.on()
-print("LED should be ON")
-sleep(2)
-led.off()
-print("LED should be OFF")
-print("Test complete!")
+from gpiozero import Button, LED
+import time
+from signal import pause
+
+# ========== GPIO PIN SETUP ==========
+BUTTON_PIN = 14      # GPIO14 for button
+GREEN_LED_PIN = 15   # GPIO15 for green LED  
+YELLOW_LED_PIN = 16  # GPIO16 for yellow LED
+RED_LED_PIN = 17     # GPIO17 for red LED
+
+# Timing constants
+YELLOW_TIME = 3      # 3 seconds
+RED_TIME = 10        # 10 seconds
+
+# ========== INITIALIZE COMPONENTS ==========
+print("Initializing GPIO components...")
+button = Button(BUTTON_PIN, pull_up=True, bounce_time=0.3)
+green = LED(GREEN_LED_PIN)
+yellow = LED(YELLOW_LED_PIN)
+red = LED(RED_LED_PIN)
+
+# ========== LED CONTROL FUNCTIONS ==========
+def all_leds_off():
+    """Turn off all LEDs"""
+    green.off()
+    yellow.off()
+    red.off()
+
+def green_on():
+    """Turn on green LED only"""
+    all_leds_off()
+    green.on()
+    print("Green LED ON")
+
+def yellow_on():
+    """Turn on yellow LED only"""
+    all_leds_off()
+    yellow.on()
+    print("Yellow LED ON")
+
+def red_on():
+    """Turn on red LED only"""
+    all_leds_off()
+    red.on()
+    print("Red LED ON")
+
+# ========== SEQUENCE FUNCTION ==========
+def run_sequence():
+    """Run the complete LED sequence"""
+    print("\n" + "="*40)
+    print("STARTING SEQUENCE")
+    print("="*40)
+    
+    # Step 1: Yellow for 3 seconds
+    yellow_on()
+    print(f"Yellow LED: {YELLOW_TIME} seconds")
+    for i in range(YELLOW_TIME, 0, -1):
+        print(f"  {i}...")
+        time.sleep(1)
+    
+    # Step 2: Red for 10 seconds
+    red_on()
+    print(f"\nRed LED: {RED_TIME} seconds")
+    for i in range(RED_TIME, 0, -1):
+        print(f"  {i}...")
+        time.sleep(1)
+    
+    # Step 3: Back to green
+    green_on()
+    print("\n✓ Sequence complete!")
+    print("Ready for next button press")
+    print("="*40 + "\n")
+
+# ========== BUTTON HANDLER ==========
+sequence_running = False
+
+def button_pressed():
+    """Handle button press event"""
+    global sequence_running
+    if not sequence_running:
+        sequence_running = True
+        run_sequence()
+        sequence_running = False
+
+# ========== MAIN PROGRAM ==========
+def main():
+    print("="*50)
+    print("LED SEQUENCE CONTROLLER - RASPBERRY PI 5")
+    print("="*50)
+    print("GPIO Pins:")
+    print(f"  Button: GPIO{BUTTON_PIN}")
+    print(f"  Green LED: GPIO{GREEN_LED_PIN}")
+    print(f"  Yellow LED: GPIO{YELLOW_LED_PIN}")
+    print(f"  Red LED: GPIO{RED_LED_PIN}")
+    print("="*50)
+    
+    # Set initial state
+    green_on()
+    print("\nSystem ready!")
+    print("Press the button to start sequence...")
+    
+    # Set button event
+    button.when_pressed = button_pressed
+    
+    try:
+        # Keep program running
+        pause()
+    except KeyboardInterrupt:
+        print("\n\nProgram stopped by user")
+    finally:
+        # Cleanup
+        all_leds_off()
+        print("All LEDs turned off")
+        print("Goodbye!")
+
+# ========== START PROGRAM ==========
+if __name__ == "__main__":
+    main()
