@@ -6,8 +6,8 @@ Using GPIO Zero library for Pi 5 compatibility
 """
 
 from gpiozero import Button, LED
-from signal import pause
 import time
+from signal import pause
 
 # ========== CONFIGURATION ==========
 # GPIO Pin Definitions
@@ -20,14 +20,17 @@ RED_LED_PIN = 17     # GPIO17 for Red LED
 YELLOW_DURATION = 3   # Yellow LED stays ON for 3 seconds
 RED_DURATION = 10     # Red LED stays ON for 10 seconds
 
-# State variables
-sequence_active = False  # Tracks if sequence is running
+# State variable
+sequence_active = False
 
 # ========== INITIALIZE COMPONENTS ==========
+print("Initializing components...")
 button = Button(BUTTON_PIN, pull_up=True, bounce_time=0.3)
 green_led = LED(GREEN_LED_PIN)
 yellow_led = LED(YELLOW_LED_PIN)
 red_led = LED(RED_LED_PIN)
+
+print("GPIO setup complete!")
 
 # ========== LED CONTROL FUNCTIONS ==========
 def turn_on_green():
@@ -61,9 +64,6 @@ def run_led_sequence():
     """
     global sequence_active
     
-    if sequence_active:
-        return  # Don't start if already running
-    
     sequence_active = True
     print("\n" + "="*50)
     print("STARTING LED SEQUENCE")
@@ -72,20 +72,12 @@ def run_led_sequence():
     # Step 1: Yellow LED (3 seconds)
     turn_on_yellow()
     print(f"Yellow LED will stay ON for {YELLOW_DURATION} seconds...")
-    
-    # Countdown for Yellow LED
-    for i in range(YELLOW_DURATION, 0, -1):
-        print(f"  Yellow: {i} second(s) remaining")
-        time.sleep(1)
+    time.sleep(YELLOW_DURATION)
     
     # Step 2: Red LED (10 seconds)
     turn_on_red()
     print(f"\nRed LED will stay ON for {RED_DURATION} seconds...")
-    
-    # Countdown for Red LED
-    for i in range(RED_DURATION, 0, -1):
-        print(f"  Red: {i} second(s) remaining")
-        time.sleep(1)
+    time.sleep(RED_DURATION)
     
     # Step 3: Return to Green LED
     turn_on_green()
@@ -95,15 +87,16 @@ def run_led_sequence():
     
     sequence_active = False
 
-# ========== BUTTON EVENT HANDLER ==========
-def button_pressed():
-    """Called when button is pressed"""
-    run_led_sequence()
+# ========== BUTTON HANDLER ==========
+def on_button_press():
+    """Handle button press"""
+    if not sequence_active:
+        run_led_sequence()
 
 # ========== MAIN PROGRAM ==========
 def main():
     """
-    Main program
+    Main program loop
     """
     print("="*50)
     print("ACTIVITY 1: LED SEQUENCE CONTROLLER")
@@ -115,8 +108,8 @@ def main():
     print("Initial state: Green LED ON")
     print("Press the button to start the sequence...")
     
-    # Setup button event
-    button.when_pressed = button_pressed
+    # Set up button event handler
+    button.when_pressed = on_button_press
     
     try:
         # Keep program running
@@ -127,6 +120,12 @@ def main():
         print("\n" + "="*50)
         print("Program interrupted by user")
         print("="*50)
+    finally:
+        # Turn off all LEDs
+        green_led.off()
+        yellow_led.off()
+        red_led.off()
+        print("All LEDs turned off")
 
 # ========== PROGRAM ENTRY POINT ==========
 if __name__ == "__main__":
