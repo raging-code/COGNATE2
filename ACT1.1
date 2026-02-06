@@ -2,17 +2,15 @@
 """
 Activity 1: LED Sequence Control
 For Raspberry Pi 5 using Thonny IDE
-Description: Green LED starts ON, button press triggers sequence:
-1. Green OFF, Yellow ON (3 seconds)
-2. Yellow OFF, Red ON (10 seconds)  
-3. Red OFF, Green ON (back to start)
+Using GPIO Zero library for Pi 5 compatibility
 """
 
-import RPi.GPIO as GPIO
+from gpiozero import Button, LED
+from signal import pause
 import time
 
 # ========== CONFIGURATION ==========
-# GPIO Pin Definitions (using BCM numbering)
+# GPIO Pin Definitions
 BUTTON_PIN = 14      # GPIO14 for push button
 GREEN_LED_PIN = 15   # GPIO15 for Green LED
 YELLOW_LED_PIN = 16  # GPIO16 for Yellow LED
@@ -21,60 +19,36 @@ RED_LED_PIN = 17     # GPIO17 for Red LED
 # Timing Constants (in seconds)
 YELLOW_DURATION = 3   # Yellow LED stays ON for 3 seconds
 RED_DURATION = 10     # Red LED stays ON for 10 seconds
-DEBOUNCE_TIME = 0.3   # Button debounce time (300ms)
 
 # State variables
 sequence_active = False  # Tracks if sequence is running
-button_pressed = False   # Tracks button press detection
 
-# ========== SETUP FUNCTION ==========
-def setup_gpio():
-    """
-    Initialize GPIO pins and set initial state
-    """
-    print("Setting up GPIO pins...")
-    
-    # Use BCM pin numbering (GPIO numbers, not physical pin numbers)
-    GPIO.setmode(GPIO.BCM)
-    
-    # Setup Button pin with pull-up resistor
-    # Button connects to GND when pressed (active LOW)
-    GPIO.setup(BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-    
-    # Setup LED pins as outputs
-    GPIO.setup(GREEN_LED_PIN, GPIO.OUT)
-    GPIO.setup(YELLOW_LED_PIN, GPIO.OUT)
-    GPIO.setup(RED_LED_PIN, GPIO.OUT)
-    
-    # Set initial state: Green ON, others OFF
-    GPIO.output(GREEN_LED_PIN, GPIO.HIGH)
-    GPIO.output(YELLOW_LED_PIN, GPIO.LOW)
-    GPIO.output(RED_LED_PIN, GPIO.LOW)
-    
-    print("GPIO setup complete!")
-    print("Initial state: Green LED ON")
-    print("Press the button to start the sequence...")
+# ========== INITIALIZE COMPONENTS ==========
+button = Button(BUTTON_PIN, pull_up=True, bounce_time=0.3)
+green_led = LED(GREEN_LED_PIN)
+yellow_led = LED(YELLOW_LED_PIN)
+red_led = LED(RED_LED_PIN)
 
 # ========== LED CONTROL FUNCTIONS ==========
 def turn_on_green():
     """Turn ON only Green LED"""
-    GPIO.output(GREEN_LED_PIN, GPIO.HIGH)
-    GPIO.output(YELLOW_LED_PIN, GPIO.LOW)
-    GPIO.output(RED_LED_PIN, GPIO.LOW)
+    green_led.on()
+    yellow_led.off()
+    red_led.off()
     print("✓ Green LED ON")
 
 def turn_on_yellow():
     """Turn ON only Yellow LED"""
-    GPIO.output(GREEN_LED_PIN, GPIO.LOW)
-    GPIO.output(YELLOW_LED_PIN, GPIO.HIGH)
-    GPIO.output(RED_LED_PIN, GPIO.LOW)
+    green_led.off()
+    yellow_led.on()
+    red_led.off()
     print("✓ Yellow LED ON")
 
 def turn_on_red():
     """Turn ON only Red LED"""
-    GPIO.output(GREEN_LED_PIN, GPIO.LOW)
-    GPIO.output(YELLOW_LED_PIN, GPIO.LOW)
-    GPIO.output(RED_LED_PIN, GPIO.HIGH)
+    green_led.off()
+    yellow_led.off()
+    red_led.on()
     print("✓ Red LED ON")
 
 # ========== SEQUENCE FUNCTION ==========
@@ -86,6 +60,9 @@ def run_led_sequence():
     3. Return to Green LED
     """
     global sequence_active
+    
+    if sequence_active:
+        return  # Don't start if already running
     
     sequence_active = True
     print("\n" + "="*50)
@@ -118,58 +95,37 @@ def run_led_sequence():
     
     sequence_active = False
 
-# ========== BUTTON CHECK FUNCTION ==========
-def check_button():
-    """
-    Check if button is pressed with debounce protection
-    Returns True if button is pressed, False otherwise
-    """
-    # Read button state (LOW when pressed due to pull-up resistor)
-    button_state = GPIO.input(BUTTON_PIN)
-    
-    # Button is pressed (active LOW)
-    if button_state == GPIO.LOW:
-        time.sleep(DEBOUNCE_TIME)  # Debounce delay
-        # Check again to confirm it's a real press
-        if GPIO.input(BUTTON_PIN) == GPIO.LOW:
-            return True
-    
-    return False
+# ========== BUTTON EVENT HANDLER ==========
+def button_pressed():
+    """Called when button is pressed"""
+    run_led_sequence()
 
 # ========== MAIN PROGRAM ==========
 def main():
     """
-    Main program loop
+    Main program
     """
     print("="*50)
     print("ACTIVITY 1: LED SEQUENCE CONTROLLER")
-    print("Raspberry Pi 5 with Thonny IDE")
+    print("Raspberry Pi 5 with GPIO Zero")
     print("="*50)
     
+    # Set initial state
+    turn_on_green()
+    print("Initial state: Green LED ON")
+    print("Press the button to start the sequence...")
+    
+    # Setup button event
+    button.when_pressed = button_pressed
+    
     try:
-        # Initialize GPIO
-        setup_gpio()
+        # Keep program running
+        pause()
         
-        # Main loop
-        while True:
-            # Check if button is pressed and sequence is not already running
-            if check_button() and not sequence_active:
-                run_led_sequence()
-            
-            # Small delay to prevent CPU overuse
-            time.sleep(0.1)
-            
     except KeyboardInterrupt:
         # Handle Ctrl+C gracefully
         print("\n" + "="*50)
         print("Program interrupted by user")
-        
-    finally:
-        # Cleanup GPIO on exit
-        print("Cleaning up GPIO...")
-        GPIO.cleanup()
-        print("GPIO cleanup complete")
-        print("Program ended")
         print("="*50)
 
 # ========== PROGRAM ENTRY POINT ==========
