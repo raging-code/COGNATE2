@@ -1,112 +1,177 @@
-// Activity 1: LED Sequence Control
-// For Raspberry Pi 5 using Arduino IDE
-// Make sure you have the Raspberry Pi Pico/RP2040 board support installed
+#!/usr/bin/env python3
+"""
+Activity 1: LED Sequence Control
+For Raspberry Pi 5 using Thonny IDE
+Description: Green LED starts ON, button press triggers sequence:
+1. Green OFF, Yellow ON (3 seconds)
+2. Yellow OFF, Red ON (10 seconds)  
+3. Red OFF, Green ON (back to start)
+"""
 
-// Pin Definitions
-const int BUTTON_PIN = 14;    // GPIO14 for button
-const int GREEN_LED_PIN = 15; // GPIO15 for Green LED
-const int YELLOW_LED_PIN = 16; // GPIO16 for Yellow LED
-const int RED_LED_PIN = 17;   // GPIO17 for Red LED
+import RPi.GPIO as GPIO
+import time
 
-// Timing Constants
-const unsigned long YELLOW_DELAY = 3000;  // 3 seconds in milliseconds
-const unsigned long RED_DELAY = 10000;    // 10 seconds in milliseconds
+# ========== CONFIGURATION ==========
+# GPIO Pin Definitions (using BCM numbering)
+BUTTON_PIN = 14      # GPIO14 for push button
+GREEN_LED_PIN = 15   # GPIO15 for Green LED
+YELLOW_LED_PIN = 16  # GPIO16 for Yellow LED
+RED_LED_PIN = 17     # GPIO17 for Red LED
 
-// Variables
-int buttonState = 0;
-int lastButtonState = 0;
-bool sequenceActive = false;
-unsigned long sequenceStartTime = 0;
-enum SequenceStage { IDLE, YELLOW_STAGE, RED_STAGE };
-SequenceStage currentStage = IDLE;
+# Timing Constants (in seconds)
+YELLOW_DURATION = 3   # Yellow LED stays ON for 3 seconds
+RED_DURATION = 10     # Red LED stays ON for 10 seconds
+DEBOUNCE_TIME = 0.3   # Button debounce time (300ms)
 
-void setup() {
-  // Initialize Serial Monitor
-  Serial.begin(115200);
-  Serial.println("Activity 1: LED Sequence Started");
-  
-  // Configure pins
-  pinMode(BUTTON_PIN, INPUT_PULLUP);  // Button with internal pull-up resistor
-  pinMode(GREEN_LED_PIN, OUTPUT);
-  pinMode(YELLOW_LED_PIN, OUTPUT);
-  pinMode(RED_LED_PIN, OUTPUT);
-  
-  // Initial state: Green LED ON, others OFF
-  digitalWrite(GREEN_LED_PIN, HIGH);
-  digitalWrite(YELLOW_LED_PIN, LOW);
-  digitalWrite(RED_LED_PIN, LOW);
-  
-  Serial.println("System Ready. Green LED ON. Press button to start sequence.");
-}
+# State variables
+sequence_active = False  # Tracks if sequence is running
+button_pressed = False   # Tracks button press detection
 
-void loop() {
-  // Read button state (active LOW when pressed with pull-up resistor)
-  buttonState = digitalRead(BUTTON_PIN);
-  
-  // Check for button press (falling edge)
-  if (buttonState == LOW && lastButtonState == HIGH) {
-    if (!sequenceActive) {
-      startSequence();
-    }
-    delay(50); // Simple debounce delay
-  }
-  
-  // Update last button state
-  lastButtonState = buttonState;
-  
-  // Handle sequence if active
-  if (sequenceActive) {
-    handleSequence();
-  }
-}
+# ========== SETUP FUNCTION ==========
+def setup_gpio():
+    """
+    Initialize GPIO pins and set initial state
+    """
+    print("Setting up GPIO pins...")
+    
+    # Use BCM pin numbering (GPIO numbers, not physical pin numbers)
+    GPIO.setmode(GPIO.BCM)
+    
+    # Setup Button pin with pull-up resistor
+    # Button connects to GND when pressed (active LOW)
+    GPIO.setup(BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+    
+    # Setup LED pins as outputs
+    GPIO.setup(GREEN_LED_PIN, GPIO.OUT)
+    GPIO.setup(YELLOW_LED_PIN, GPIO.OUT)
+    GPIO.setup(RED_LED_PIN, GPIO.OUT)
+    
+    # Set initial state: Green ON, others OFF
+    GPIO.output(GREEN_LED_PIN, GPIO.HIGH)
+    GPIO.output(YELLOW_LED_PIN, GPIO.LOW)
+    GPIO.output(RED_LED_PIN, GPIO.LOW)
+    
+    print("GPIO setup complete!")
+    print("Initial state: Green LED ON")
+    print("Press the button to start the sequence...")
 
-void startSequence() {
-  Serial.println("Button pressed! Starting sequence...");
-  
-  // Turn OFF Green LED
-  digitalWrite(GREEN_LED_PIN, LOW);
-  
-  // Turn ON Yellow LED
-  digitalWrite(YELLOW_LED_PIN, HIGH);
-  digitalWrite(RED_LED_PIN, LOW);
-  
-  // Start timing
-  sequenceStartTime = millis();
-  currentStage = YELLOW_STAGE;
-  sequenceActive = true;
-  
-  Serial.println("Yellow LED ON for 3 seconds...");
-}
+# ========== LED CONTROL FUNCTIONS ==========
+def turn_on_green():
+    """Turn ON only Green LED"""
+    GPIO.output(GREEN_LED_PIN, GPIO.HIGH)
+    GPIO.output(YELLOW_LED_PIN, GPIO.LOW)
+    GPIO.output(RED_LED_PIN, GPIO.LOW)
+    print("✓ Green LED ON")
 
-void handleSequence() {
-  unsigned long currentTime = millis();
-  unsigned long elapsedTime = currentTime - sequenceStartTime;
-  
-  switch (currentStage) {
-    case YELLOW_STAGE:
-      if (elapsedTime >= YELLOW_DELAY) {
-        // Switch to Red stage
-        digitalWrite(YELLOW_LED_PIN, LOW);
-        digitalWrite(RED_LED_PIN, HIGH);
-        sequenceStartTime = currentTime; // Reset timer for Red stage
-        currentStage = RED_STAGE;
-        Serial.println("Red LED ON for 10 seconds...");
-      }
-      break;
-      
-    case RED_STAGE:
-      if (elapsedTime >= RED_DELAY) {
-        // End sequence, return to Green LED
-        digitalWrite(RED_LED_PIN, LOW);
-        digitalWrite(GREEN_LED_PIN, HIGH);
-        sequenceActive = false;
-        currentStage = IDLE;
-        Serial.println("Sequence complete. Green LED ON. Ready for next button press.");
-      }
-      break;
-      
-    case IDLE:
-      // Do nothing
-      break;
-  }
-}
+def turn_on_yellow():
+    """Turn ON only Yellow LED"""
+    GPIO.output(GREEN_LED_PIN, GPIO.LOW)
+    GPIO.output(YELLOW_LED_PIN, GPIO.HIGH)
+    GPIO.output(RED_LED_PIN, GPIO.LOW)
+    print("✓ Yellow LED ON")
+
+def turn_on_red():
+    """Turn ON only Red LED"""
+    GPIO.output(GREEN_LED_PIN, GPIO.LOW)
+    GPIO.output(YELLOW_LED_PIN, GPIO.LOW)
+    GPIO.output(RED_LED_PIN, GPIO.HIGH)
+    print("✓ Red LED ON")
+
+# ========== SEQUENCE FUNCTION ==========
+def run_led_sequence():
+    """
+    Execute the complete LED sequence:
+    1. Yellow LED for 3 seconds
+    2. Red LED for 10 seconds
+    3. Return to Green LED
+    """
+    global sequence_active
+    
+    sequence_active = True
+    print("\n" + "="*50)
+    print("STARTING LED SEQUENCE")
+    print("="*50)
+    
+    # Step 1: Yellow LED (3 seconds)
+    turn_on_yellow()
+    print(f"Yellow LED will stay ON for {YELLOW_DURATION} seconds...")
+    
+    # Countdown for Yellow LED
+    for i in range(YELLOW_DURATION, 0, -1):
+        print(f"  Yellow: {i} second(s) remaining")
+        time.sleep(1)
+    
+    # Step 2: Red LED (10 seconds)
+    turn_on_red()
+    print(f"\nRed LED will stay ON for {RED_DURATION} seconds...")
+    
+    # Countdown for Red LED
+    for i in range(RED_DURATION, 0, -1):
+        print(f"  Red: {i} second(s) remaining")
+        time.sleep(1)
+    
+    # Step 3: Return to Green LED
+    turn_on_green()
+    print("\n✓ Sequence complete!")
+    print("System ready for next button press")
+    print("="*50 + "\n")
+    
+    sequence_active = False
+
+# ========== BUTTON CHECK FUNCTION ==========
+def check_button():
+    """
+    Check if button is pressed with debounce protection
+    Returns True if button is pressed, False otherwise
+    """
+    # Read button state (LOW when pressed due to pull-up resistor)
+    button_state = GPIO.input(BUTTON_PIN)
+    
+    # Button is pressed (active LOW)
+    if button_state == GPIO.LOW:
+        time.sleep(DEBOUNCE_TIME)  # Debounce delay
+        # Check again to confirm it's a real press
+        if GPIO.input(BUTTON_PIN) == GPIO.LOW:
+            return True
+    
+    return False
+
+# ========== MAIN PROGRAM ==========
+def main():
+    """
+    Main program loop
+    """
+    print("="*50)
+    print("ACTIVITY 1: LED SEQUENCE CONTROLLER")
+    print("Raspberry Pi 5 with Thonny IDE")
+    print("="*50)
+    
+    try:
+        # Initialize GPIO
+        setup_gpio()
+        
+        # Main loop
+        while True:
+            # Check if button is pressed and sequence is not already running
+            if check_button() and not sequence_active:
+                run_led_sequence()
+            
+            # Small delay to prevent CPU overuse
+            time.sleep(0.1)
+            
+    except KeyboardInterrupt:
+        # Handle Ctrl+C gracefully
+        print("\n" + "="*50)
+        print("Program interrupted by user")
+        
+    finally:
+        # Cleanup GPIO on exit
+        print("Cleaning up GPIO...")
+        GPIO.cleanup()
+        print("GPIO cleanup complete")
+        print("Program ended")
+        print("="*50)
+
+# ========== PROGRAM ENTRY POINT ==========
+if __name__ == "__main__":
+    main()
