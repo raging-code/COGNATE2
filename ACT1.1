@@ -1,0 +1,112 @@
+// Activity 1: LED Sequence Control
+// For Raspberry Pi 5 using Arduino IDE
+// Make sure you have the Raspberry Pi Pico/RP2040 board support installed
+
+// Pin Definitions
+const int BUTTON_PIN = 14;    // GPIO14 for button
+const int GREEN_LED_PIN = 15; // GPIO15 for Green LED
+const int YELLOW_LED_PIN = 16; // GPIO16 for Yellow LED
+const int RED_LED_PIN = 17;   // GPIO17 for Red LED
+
+// Timing Constants
+const unsigned long YELLOW_DELAY = 3000;  // 3 seconds in milliseconds
+const unsigned long RED_DELAY = 10000;    // 10 seconds in milliseconds
+
+// Variables
+int buttonState = 0;
+int lastButtonState = 0;
+bool sequenceActive = false;
+unsigned long sequenceStartTime = 0;
+enum SequenceStage { IDLE, YELLOW_STAGE, RED_STAGE };
+SequenceStage currentStage = IDLE;
+
+void setup() {
+  // Initialize Serial Monitor
+  Serial.begin(115200);
+  Serial.println("Activity 1: LED Sequence Started");
+  
+  // Configure pins
+  pinMode(BUTTON_PIN, INPUT_PULLUP);  // Button with internal pull-up resistor
+  pinMode(GREEN_LED_PIN, OUTPUT);
+  pinMode(YELLOW_LED_PIN, OUTPUT);
+  pinMode(RED_LED_PIN, OUTPUT);
+  
+  // Initial state: Green LED ON, others OFF
+  digitalWrite(GREEN_LED_PIN, HIGH);
+  digitalWrite(YELLOW_LED_PIN, LOW);
+  digitalWrite(RED_LED_PIN, LOW);
+  
+  Serial.println("System Ready. Green LED ON. Press button to start sequence.");
+}
+
+void loop() {
+  // Read button state (active LOW when pressed with pull-up resistor)
+  buttonState = digitalRead(BUTTON_PIN);
+  
+  // Check for button press (falling edge)
+  if (buttonState == LOW && lastButtonState == HIGH) {
+    if (!sequenceActive) {
+      startSequence();
+    }
+    delay(50); // Simple debounce delay
+  }
+  
+  // Update last button state
+  lastButtonState = buttonState;
+  
+  // Handle sequence if active
+  if (sequenceActive) {
+    handleSequence();
+  }
+}
+
+void startSequence() {
+  Serial.println("Button pressed! Starting sequence...");
+  
+  // Turn OFF Green LED
+  digitalWrite(GREEN_LED_PIN, LOW);
+  
+  // Turn ON Yellow LED
+  digitalWrite(YELLOW_LED_PIN, HIGH);
+  digitalWrite(RED_LED_PIN, LOW);
+  
+  // Start timing
+  sequenceStartTime = millis();
+  currentStage = YELLOW_STAGE;
+  sequenceActive = true;
+  
+  Serial.println("Yellow LED ON for 3 seconds...");
+}
+
+void handleSequence() {
+  unsigned long currentTime = millis();
+  unsigned long elapsedTime = currentTime - sequenceStartTime;
+  
+  switch (currentStage) {
+    case YELLOW_STAGE:
+      if (elapsedTime >= YELLOW_DELAY) {
+        // Switch to Red stage
+        digitalWrite(YELLOW_LED_PIN, LOW);
+        digitalWrite(RED_LED_PIN, HIGH);
+        sequenceStartTime = currentTime; // Reset timer for Red stage
+        currentStage = RED_STAGE;
+        Serial.println("Red LED ON for 10 seconds...");
+      }
+      break;
+      
+    case RED_STAGE:
+      if (elapsedTime >= RED_DELAY) {
+        // End sequence, return to Green LED
+        digitalWrite(RED_LED_PIN, LOW);
+        digitalWrite(GREEN_LED_PIN, HIGH);
+        sequenceActive = false;
+        currentStage = IDLE;
+        Serial.println("Sequence complete. Green LED ON. Ready for next button press.");
+      }
+      break;
+      
+    case IDLE:
+      // Do nothing
+      break;
+  }
+}
