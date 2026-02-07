@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Activity 1: LED Sequence Control for Raspberry Pi 5
+Activity 1: LED Sequence Control with Buzzer for Raspberry Pi 5
 Using GPIO Zero - Tested and working
 """
 
-from gpiozero import Button, LED
+from gpiozero import Button, LED, Buzzer
 import time
 from signal import pause
 
@@ -13,10 +13,13 @@ BUTTON_PIN = 14      # GPIO14 for button
 GREEN_LED_PIN = 15   # GPIO15 for green LED  
 YELLOW_LED_PIN = 16  # GPIO16 for yellow LED
 RED_LED_PIN = 17     # GPIO17 for red LED
+BUZZER_PIN = 18      # GPIO18 for buzzer (active or passive)
 
 # Timing constants
-YELLOW_TIME = 3      # 3 seconds
+YELLOW_TIME = 5      # 5 seconds (increased from 3)
 RED_TIME = 10        # 10 seconds
+BUZZER_BEEP_TIME = 0.2  # Duration of each beep
+BUZZER_PAUSE_TIME = 0.3  # Pause between beeps
 
 # ========== INITIALIZE COMPONENTS ==========
 print("Initializing GPIO components...")
@@ -24,6 +27,7 @@ button = Button(BUTTON_PIN, pull_up=True, bounce_time=0.3)
 green = LED(GREEN_LED_PIN)
 yellow = LED(YELLOW_LED_PIN)
 red = LED(RED_LED_PIN)
+buzzer = Buzzer(BUZZER_PIN)
 
 # ========== LED CONTROL FUNCTIONS ==========
 def all_leds_off():
@@ -50,28 +54,43 @@ def red_on():
     red.on()
     print("Red LED ON")
 
+# ========== BUZZER FUNCTIONS ==========
+def beep_buzzer(times=3):
+    """Beep the buzzer specified number of times (low pitch)"""
+    for i in range(times):
+        buzzer.on()
+        time.sleep(BUZZER_BEEP_TIME)
+        buzzer.off()
+        if i < times - 1:  # Don't pause after the last beep
+            time.sleep(BUZZER_PAUSE_TIME)
+    print(f"Buzzer: {times} beeps completed")
+
 # ========== SEQUENCE FUNCTION ==========
 def run_sequence():
-    """Run the complete LED sequence"""
+    """Run the complete LED sequence with buzzer"""
     print("\n" + "="*40)
     print("STARTING SEQUENCE")
     print("="*40)
     
-    # Step 1: Yellow for 3 seconds
+    # Step 1: Beep buzzer 3 times when button is pressed
+    print("Button pressed - Buzzer active")
+    beep_buzzer(3)
+    
+    # Step 2: Yellow for 5 seconds
     yellow_on()
-    print(f"Yellow LED: {YELLOW_TIME} seconds")
+    print(f"\nYellow LED: {YELLOW_TIME} seconds")
     for i in range(YELLOW_TIME, 0, -1):
         print(f"  {i}...")
         time.sleep(1)
     
-    # Step 2: Red for 10 seconds
+    # Step 3: Red for 10 seconds
     red_on()
     print(f"\nRed LED: {RED_TIME} seconds")
     for i in range(RED_TIME, 0, -1):
         print(f"  {i}...")
         time.sleep(1)
     
-    # Step 3: Back to green
+    # Step 4: Back to green
     green_on()
     print("\n✓ Sequence complete!")
     print("Ready for next button press")
@@ -91,13 +110,20 @@ def button_pressed():
 # ========== MAIN PROGRAM ==========
 def main():
     print("="*50)
-    print("LED SEQUENCE CONTROLLER - RASPBERRY PI 5")
+    print("LED SEQUENCE CONTROLLER WITH BUZZER - RASPBERRY PI 5")
     print("="*50)
     print("GPIO Pins:")
     print(f"  Button: GPIO{BUTTON_PIN}")
     print(f"  Green LED: GPIO{GREEN_LED_PIN}")
     print(f"  Yellow LED: GPIO{YELLOW_LED_PIN}")
     print(f"  Red LED: GPIO{RED_LED_PIN}")
+    print(f"  Buzzer: GPIO{BUZZER_PIN}")
+    print("="*50)
+    print("Sequence:")
+    print("  1. Button press → 3x buzzer beeps")
+    print(f"  2. Yellow LED ON ({YELLOW_TIME} seconds)")
+    print(f"  3. Red LED ON ({RED_TIME} seconds)")
+    print("  4. Green LED ON (ready for next press)")
     print("="*50)
     
     # Set initial state
@@ -116,7 +142,9 @@ def main():
     finally:
         # Cleanup
         all_leds_off()
+        buzzer.off()  # Ensure buzzer is off
         print("All LEDs turned off")
+        print("Buzzer turned off")
         print("Goodbye!")
 
 # ========== START PROGRAM ==========
