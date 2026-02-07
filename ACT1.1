@@ -1,207 +1,154 @@
 #!/usr/bin/env python3
 """
-GPIO14 Button Test - Compatible with all gpiozero versions
+Activity 1: LED Sequence Control for Raspberry Pi 5
+Using GPIO Zero - Tested and working
 """
 
-from gpiozero import Button
+from gpiozero import Button, LED
 import time
+from signal import pause
 
-def simple_button_test():
-    """
-    SIMPLEST button test - guaranteed to work
-    """
+# ========== GPIO PIN SETUP ==========
+BUTTON_PIN = 14      # GPIO14 for button
+GREEN_LED_PIN = 15   # GPIO15 for green LED  
+YELLOW_LED_PIN = 16  # GPIO16 for yellow LED
+RED_LED_PIN = 17     # GPIO17 for red LED
+
+# Timing constants
+YELLOW_TIME = 3      # 3 seconds
+RED_TIME = 10        # 10 seconds
+
+# ========== INITIALIZE COMPONENTS ==========
+print("Initializing GPIO components...")
+button = Button(BUTTON_PIN, pull_up=True, bounce_time=0.3)
+green = LED(GREEN_LED_PIN)
+yellow = LED(YELLOW_LED_PIN)
+red = LED(RED_LED_PIN)
+
+# ========== LED CONTROL FUNCTIONS ==========
+def all_leds_off():
+    """Turn off all LEDs"""
+    green.off()
+    yellow.off()
+    red.off()
+
+def green_on():
+    """Turn on green LED only"""
+    all_leds_off()
+    green.on()
+    print("Green LED ON")
+
+def yellow_on():
+    """Turn on yellow LED only"""
+    all_leds_off()
+    yellow.on()
+    print("Yellow LED ON")
+
+def red_on():
+    """Turn on red LED only"""
+    all_leds_off()
+    red.on()
+    print("Red LED ON")
+
+# ========== SEQUENCE FUNCTION ==========
+def run_sequence():
+    """Run the complete LED sequence"""
     print("\n" + "="*40)
-    print("SIMPLE BUTTON TEST")
+    print("STARTING SEQUENCE")
     print("="*40)
     
-    print("WIRING INSTRUCTIONS:")
+    # Step 1: Yellow for 3 seconds
+    yellow_on()
+    print(f"Yellow LED: {YELLOW_TIME} seconds")
+    for i in range(YELLOW_TIME, 0, -1):
+        print(f"  {i}...")
+        time.sleep(1)
+    
+    # Step 2: Red for 10 seconds
+    red_on()
+    print(f"\nRed LED: {RED_TIME} seconds")
+    for i in range(RED_TIME, 0, -1):
+        print(f"  {i}...")
+        time.sleep(1)
+    
+    # Step 3: Back to green
+    green_on()
+    print("\n✓ Sequence complete!")
+    print("Ready for next button press")
+    print("="*40 + "\n")
+
+# ========== BUTTON HANDLER ==========
+def button_pressed():
+    """Handle button press event"""
+    print(f"\n[{time.strftime('%H:%M:%S')}] Button pressed - Starting sequence")
+    run_sequence()
+
+def button_released():
+    """Handle button release event"""
+    print(f"[{time.strftime('%H:%M:%S')}] Button released")
+
+# ========== MAIN PROGRAM ==========
+def main():
+    print("="*50)
+    print("LED SEQUENCE CONTROLLER - RASPBERRY PI 5")
+    print("="*50)
+    print("GPIO Pins:")
+    print(f"  Button: GPIO{BUTTON_PIN} (connects to GND when pressed)")
+    print(f"  Green LED: GPIO{GREEN_LED_PIN}")
+    print(f"  Yellow LED: GPIO{YELLOW_LED_PIN}")
+    print(f"  Red LED: GPIO{RED_LED_PIN}")
+    print("="*50)
+    print("\nWIRING INSTRUCTIONS:")
     print("1. Connect one side of button to GPIO14 (Pin 8)")
     print("2. Connect other side to GND (Pin 6)")
-    print("3. That's it! No resistors needed.")
-    print("\n" + "-"*40)
-    print("Press the button to test...")
-    print("Press Ctrl+C to exit")
-    print("="*40)
+    print("3. LEDs: GPIO -> Resistor (220-330Ω) -> LED+ -> LED- -> GND")
+    print("="*50)
     
-    # Create button - uses internal pull-up by default
-    button = Button(14)
+    # Set initial state
+    green_on()
+    print("\nSystem ready!")
+    print("Press the button to start sequence...")
     
-    press_count = 0
-    last_state = button.is_pressed
+    # Set button events - using when_pressed (on press down)
+    button.when_pressed = button_pressed
+    button.when_released = button_released
     
-    try:
-        while True:
-            current_state = button.is_pressed
-            
-            # Detect button press (change from not pressed to pressed)
-            if current_state and not last_state:
-                press_count += 1
-                print(f"✓ Button PRESSED! (Count: {press_count})")
-            
-            # Detect button release (change from pressed to not pressed)
-            elif not current_state and last_state:
-                print("  Button released")
-            
-            last_state = current_state
-            time.sleep(0.01)  # Small delay
-            
-    except KeyboardInterrupt:
-        print(f"\nTotal button presses: {press_count}")
-        print("Test complete!")
-    finally:
-        # Cleanup is automatic with gpiozero
-        pass
-
-def button_state_monitor():
-    """
-    Continuously monitor button state
-    """
-    print("\n" + "="*40)
-    print("BUTTON STATE MONITOR")
-    print("="*40)
-    
-    button = Button(14)
-    
-    print("Current button state will update every 0.5 seconds")
-    print("Press Ctrl+C to exit\n")
-    
-    try:
-        while True:
-            state = button.is_pressed
-            value = button.value
-            
-            if state:
-                print(f"State: PRESSED  (Value: {value})  [Button connecting GPIO14 to GND]")
-            else:
-                print(f"State: NOT PRESSED  (Value: {value})  [Button open circuit]")
-            
-            time.sleep(0.5)
-            
-    except KeyboardInterrupt:
-        print("\nMonitor stopped")
-
-def troubleshooting_test():
-    """
-    Help diagnose button wiring issues
-    """
-    print("\n" + "="*40)
-    print("TROUBLESHOOTING TEST")
-    print("="*40)
-    
-    print("\nTesting your button connection...")
-    
-    # Test with pull-up (default for Button)
-    try:
-        button = Button(14)
-        
-        print("\n1. Testing with internal pull-up (default):")
-        for i in range(5):
-            if button.is_pressed:
-                print(f"  Reading {i+1}: PRESSED (GPIO14 connected to GND)")
-            else:
-                print(f"  Reading {i+1}: NOT PRESSED (GPIO14 floating or connected to 3.3V)")
-            time.sleep(0.5)
-        
-        print("\n" + "-"*40)
-        print("DIAGNOSIS:")
-        
-        # Check what state we're seeing
-        if button.is_pressed:
-            print("⚠️ Button appears PRESSED without touching it.")
-            print("Possible issues:")
-            print("  - Button might be stuck/wired permanently closed")
-            print("  - Wrong wiring (might be connected to 3.3V instead of GND)")
-            print("  - Short circuit between GPIO14 and GND")
-        else:
-            print("✓ Button appears NOT PRESSED (good starting state)")
-            print("\nNow press and hold the button...")
-            input("Press Enter when ready, then hold button and press Enter again...")
-            
-            if button.is_pressed:
-                print("✓ Button correctly shows PRESSED when held")
-                print("✓ Your wiring is CORRECT!")
-            else:
-                print("⚠️ Button still shows NOT PRESSED when held")
-                print("Possible issues:")
-                print("  - Button not making proper connection")
-                print("  - Wrong GPIO pin")
-                print("  - Button connected between wrong pins")
-                print("  - Button might be defective")
-        
-    except Exception as e:
-        print(f"Error: {e}")
-        print("\nMake sure:")
-        print("1. You're using GPIO14 (Pin 8)")
-        print("2. Other program isn't using the pin")
-        print("3. Try: sudo apt update && sudo apt install python3-gpiozero")
-
-def main():
-    """
-    Main menu
-    """
-    print("RASPBERRY PI BUTTON TESTER")
-    print("="*40)
-    print("Test GPIO14 button with gpiozero")
-    
-    while True:
-        print("\nChoose test:")
-        print("1. Simple button test (start here)")
-        print("2. Button state monitor")
-        print("3. Troubleshooting/diagnostic")
-        print("4. Exit")
+    # Alternative: Use simple state monitoring for debugging
+    def monitor_button():
+        """Monitor button state for debugging"""
+        last_state = button.is_pressed
+        press_count = 0
         
         try:
-            choice = input("\nEnter choice (1-4): ").strip()
-            
-            if choice == "1":
-                simple_button_test()
-            elif choice == "2":
-                button_state_monitor()
-            elif choice == "3":
-                troubleshooting_test()
-            elif choice == "4":
-                print("Goodbye!")
-                break
-            else:
-                print("Please enter 1, 2, 3, or 4")
+            while True:
+                current_state = button.is_pressed
+                
+                if current_state and not last_state:
+                    press_count += 1
+                    print(f"[{time.strftime('%H:%M:%S')}] Button PRESSED (Count: {press_count})")
+                elif not current_state and last_state:
+                    print(f"[{time.strftime('%H:%M:%S')}] Button RELEASED")
+                
+                last_state = current_state
+                time.sleep(0.01)
                 
         except KeyboardInterrupt:
-            print("\n\nExiting...")
-            break
-        except Exception as e:
-            print(f"Error: {e}")
-
-# Direct test without menu
-def quick_test():
-    """
-    Run a quick test immediately
-    """
-    print("Quick Button Test on GPIO14")
-    print("Press Ctrl+C to stop\n")
-    
-    button = Button(14)
+            pass
     
     try:
-        while True:
-            if button.is_pressed:
-                print("PRESSED", end="\r")
-            else:
-                print("not pressed", end="\r")
-            time.sleep(0.1)
+        # Keep program running
+        print(f"\n[{time.strftime('%H:%M:%S')}] Waiting for button press...")
+        print("Press Ctrl+C to exit")
+        pause()
+        
     except KeyboardInterrupt:
-        print("\n\nTest stopped")
+        print("\n\nProgram stopped by user")
+    finally:
+        # Cleanup
+        all_leds_off()
+        print("All LEDs turned off")
+        print("Goodbye!")
 
+# ========== START PROGRAM ==========
 if __name__ == "__main__":
-    try:
-        # Uncomment one of these:
-        main()          # For menu interface
-        # quick_test()  # For immediate simple test
-    except ImportError:
-        print("ERROR: gpiozero not installed!")
-        print("Install with: sudo apt install python3-gpiozero")
-    except Exception as e:
-        print(f"Error: {e}")
-        print("\nCommon fixes:")
-        print("1. Make sure button connects GPIO14 to GND")
-        print("2. Check you're using correct pins")
-        print("3. Try: sudo apt update && sudo apt install python3-gpiozero")
+    main()
