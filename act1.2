@@ -19,7 +19,7 @@ winner = None
 def play_game():
     global blinking_active, winner
     
-    # Reset
+    # Reset winner BEFORE each game
     winner = None
     blinking_active = True
     led.off()
@@ -43,8 +43,16 @@ def play_game():
     led.on()
     
     # Wait for button press after blinking
+    # Add a timeout so game doesn't wait forever
+    timeout = 5  # 5 second timeout
     start_time = time.time()
+    
     while winner is None:
+        # Check for timeout
+        if time.time() - start_time > timeout:
+            print("\n⏰ TIME OUT! No one pressed.")
+            winner = "NO ONE"
+            break
         time.sleep(0.01)
 
 def player1_pressed():
