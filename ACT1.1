@@ -1,34 +1,37 @@
 #!/usr/bin/env python3
 """
-ULTRA-SIMPLE BUTTON TEST
-Connect button between GPIO14 and 3.3V
+Button Debug Test
 """
-
-from gpiozero import Button, LED
+import RPi.GPIO as GPIO
 import time
 
-# Create button with NO pull-up/down
-button = Button(14, pull_up=None)
-led = LED(15)  # Simple test LED
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(14, GPIO.IN)  # No pull-up/down
 
-print("Testing button connection...")
-print("Button should connect GPIO14 to 3.3V")
-print("Press button to blink LED, Ctrl+C to quit")
-
-led.on()
+print("Testing GPIO14...")
+print("Press button (connect to 3.3V) or Ctrl+C to quit")
+print("Reading value every second:")
 
 try:
     while True:
-        if button.is_pressed:
-            print("✓ Button PRESSED")
-            led.off()
-            time.sleep(0.2)
-            led.on()
-            # Wait for button release
-            while button.is_pressed:
-                time.sleep(0.01)
-            print("Button released")
-        time.sleep(0.05)
+        value = GPIO.input(14)
+        print(f"GPIO14 value: {value} (1=3.3V, 0=GND/floating)")
+        
+        # Also test with internal pull-down
+        GPIO.setup(14, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+        value2 = GPIO.input(14)
+        print(f"With pull-down: {value2}")
+        
+        GPIO.setup(14, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+        value3 = GPIO.input(14)
+        print(f"With pull-up: {value3}")
+        
+        print("-" * 30)
+        time.sleep(1)
+        
+        # Reset to no pull
+        GPIO.setup(14, GPIO.IN)
+        
 except KeyboardInterrupt:
-    led.off()
-    print("\nTest complete")
+    GPIO.cleanup()
+    print("\nDone")
