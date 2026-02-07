@@ -78,100 +78,15 @@ def run_sequence():
     print("="*40 + "\n")
 
 # ========== BUTTON HANDLER ==========
+sequence_running = False
+
 def button_pressed():
     """Handle button press event"""
-    print(f"\n[{time.strftime('%H:%M:%S')}] Button pressed - Starting sequence")
-    run_sequence()
-
-def button_released():
-    """Handle button release event"""
-    print(f"[{time.strftime('%H:%M:%S')}] Button released")
-
-# ========== BUTTON TEST FUNCTION ==========
-def test_button_only():
-    """Test just the button without LED sequence - for troubleshooting"""
-    print("\n" + "="*50)
-    print("BUTTON TEST MODE")
-    print("="*50)
-    
-    print("\nTesting button wiring...")
-    print("Press the button to see if it's detected")
-    print("Press Ctrl+C to return to main program\n")
-    
-    press_count = 0
-    last_state = button.is_pressed
-    
-    # Show initial state
-    print(f"Initial button state: {'PRESSED' if button.is_pressed else 'NOT PRESSED'}")
-    print(f"Button value: {button.value}")
-    print(f"Button pin: GPIO{BUTTON_PIN}")
-    print("-"*40)
-    
-    try:
-        while True:
-            current_state = button.is_pressed
-            
-            if current_state and not last_state:
-                press_count += 1
-                print(f"[{time.strftime('%H:%M:%S')}] ✓ Button PRESSED! (Count: {press_count})")
-                print(f"  Button value: {button.value}")
-                
-            elif not current_state and last_state:
-                print(f"[{time.strftime('%H:%M:%S')}] Button RELEASED")
-                print(f"  Button value: {button.value}")
-            
-            last_state = current_state
-            time.sleep(0.01)  # Small delay to prevent CPU overload
-            
-    except KeyboardInterrupt:
-        print(f"\nTotal button presses detected: {press_count}")
-        print("Returning to main program...")
-        print("="*50 + "\n")
-        return press_count
-
-# ========== WIRING DIAGNOSTIC ==========
-def check_wiring():
-    """Diagnose wiring issues"""
-    print("\n" + "="*50)
-    print("WIRING DIAGNOSTIC")
-    print("="*50)
-    
-    print("\nChecking current state...")
-    initial_state = button.is_pressed
-    
-    if initial_state:
-        print("⚠️  Button shows as PRESSED without touching it!")
-        print("\nPossible issues:")
-        print("1. Button might be stuck or wired permanently closed")
-        print("2. Wrong wiring (connected to 3.3V instead of GND)")
-        print("3. Short circuit between GPIO14 and GND")
-        print("4. Using wrong GPIO pin")
-    else:
-        print("✓ Button shows as NOT PRESSED (good initial state)")
-        print("\nNow testing button press...")
-        print("Please press and hold the button for 3 seconds")
-        
-        try:
-            for i in range(3, 0, -1):
-                print(f"  {i}...")
-                time.sleep(1)
-            
-            if button.is_pressed:
-                print("\n✓ Button correctly shows as PRESSED when held")
-                print("✓ Your button wiring is CORRECT!")
-            else:
-                print("\n⚠️  Button still shows as NOT PRESSED when held")
-                print("\nPossible issues:")
-                print("1. Button not making proper connection")
-                print("2. Wrong GPIO pin")
-                print("3. Button connected between wrong pins")
-                print("4. Button might be defective")
-                print("5. No pull-up resistor (but gpiozero provides internal)")
-                
-        except KeyboardInterrupt:
-            print("\nTest interrupted")
-    
-    print("\n" + "="*50)
+    global sequence_running
+    if not sequence_running:
+        sequence_running = True
+        run_sequence()
+        sequence_running = False
 
 # ========== MAIN PROGRAM ==========
 def main():
@@ -179,160 +94,31 @@ def main():
     print("LED SEQUENCE CONTROLLER - RASPBERRY PI 5")
     print("="*50)
     print("GPIO Pins:")
-    print(f"  Button: GPIO{BUTTON_PIN} (Pin 8) - connects to GND when pressed")
-    print(f"  Green LED: GPIO{GREEN_LED_PIN} (Pin 10)")
-    print(f"  Yellow LED: GPIO{YELLOW_LED_PIN} (Pin 12)")
-    print(f"  Red LED: GPIO{RED_LED_PIN} (Pin 11)")
-    print("="*50)
-    
-    print("\nWIRING INSTRUCTIONS:")
-    print("BUTTON:")
-    print("  1. Connect one side of button to GPIO14 (Pin 8)")
-    print("  2. Connect other side to GND (Pin 6)")
-    print("\nLEDs (repeat for each LED):")
-    print("  1. Connect GPIO pin to resistor (220-330Ω)")
-    print("  2. Connect resistor to LED anode (long leg)")
-    print("  3. Connect LED cathode (short leg) to GND")
-    print("="*50)
-    
-    # Menu system
-    while True:
-        print("\n" + "="*50)
-        print("MAIN MENU")
-        print("="*50)
-        print("1. Run LED Sequence Program (main activity)")
-        print("2. Test Button Only (troubleshooting)")
-        print("3. Check Wiring (diagnostic)")
-        print("4. Test LEDs Only")
-        print("5. Exit")
-        print("="*50)
-        
-        try:
-            choice = input("\nEnter choice (1-5): ").strip()
-            
-            if choice == "1":
-                # Run main program
-                print("\n" + "="*50)
-                print("RUNNING LED SEQUENCE PROGRAM")
-                print("="*50)
-                
-                # Set initial state
-                green_on()
-                print("\nSystem ready!")
-                print("Press the button to start sequence...")
-                print("Press Ctrl+C to return to menu")
-                
-                # Set button events
-                button.when_pressed = button_pressed
-                button.when_released = button_released
-                
-                try:
-                    # Keep program running
-                    print(f"\n[{time.strftime('%H:%M:%S')}] Waiting for button press...")
-                    pause()
-                    
-                except KeyboardInterrupt:
-                    print("\nReturning to menu...")
-                    # Clear button events when returning to menu
-                    button.when_pressed = None
-                    button.when_released = None
-                    
-            elif choice == "2":
-                # Test button only
-                test_button_only()
-                
-            elif choice == "3":
-                # Check wiring
-                check_wiring()
-                
-            elif choice == "4":
-                # Test LEDs
-                print("\n" + "="*50)
-                print("LED TEST")
-                print("="*50)
-                print("Testing each LED for 2 seconds...")
-                
-                print("\nTesting GREEN LED...")
-                green_on()
-                time.sleep(2)
-                
-                print("\nTesting YELLOW LED...")
-                yellow_on()
-                time.sleep(2)
-                
-                print("\nTesting RED LED...")
-                red_on()
-                time.sleep(2)
-                
-                print("\nTesting complete! Returning to green...")
-                green_on()
-                
-            elif choice == "5":
-                print("\nExiting program...")
-                break
-                
-            else:
-                print("Please enter a number between 1 and 5")
-                
-        except KeyboardInterrupt:
-            print("\n\nExiting program...")
-            break
-        except Exception as e:
-            print(f"Error: {e}")
-    
-    # Cleanup
-    print("\n" + "="*50)
-    print("CLEANUP")
-    print("="*50)
-    all_leds_off()
-    print("All LEDs turned off")
-    print("GPIO cleanup complete")
-    print("Goodbye!")
-
-# ========== QUICK START FUNCTION ==========
-def quick_start():
-    """Start the main program directly without menu"""
-    print("="*50)
-    print("LED SEQUENCE CONTROLLER - QUICK START")
+    print(f"  Button: GPIO{BUTTON_PIN}")
+    print(f"  Green LED: GPIO{GREEN_LED_PIN}")
+    print(f"  Yellow LED: GPIO{YELLOW_LED_PIN}")
+    print(f"  Red LED: GPIO{RED_LED_PIN}")
     print("="*50)
     
     # Set initial state
     green_on()
     print("\nSystem ready!")
     print("Press the button to start sequence...")
-    print("Press Ctrl+C to exit\n")
     
-    # Set button events
+    # Set button event
     button.when_pressed = button_pressed
-    button.when_released = button_released
     
     try:
         # Keep program running
-        print(f"[{time.strftime('%H:%M:%S')}] Waiting for button press...")
         pause()
-        
     except KeyboardInterrupt:
         print("\n\nProgram stopped by user")
     finally:
         # Cleanup
         all_leds_off()
-        print("\nAll LEDs turned off")
+        print("All LEDs turned off")
         print("Goodbye!")
 
 # ========== START PROGRAM ==========
 if __name__ == "__main__":
-    try:
-        # Uncomment one of these:
-        main()           # For menu interface
-        # quick_start()  # For immediate start without menu
-        
-    except ImportError as e:
-        print(f"ERROR: Missing library - {e}")
-        print("Install gpiozero with: sudo apt install python3-gpiozero")
-    except Exception as e:
-        print(f"Unexpected error: {e}")
-        print("\nTroubleshooting steps:")
-        print("1. Check wiring connections")
-        print("2. Verify correct GPIO pins")
-        print("3. Check if another program is using the GPIO pins")
-        print("4. Try: sudo apt update && sudo apt install python3-gpiozero")
+    main()
