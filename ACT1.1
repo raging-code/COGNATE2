@@ -1,37 +1,183 @@
 #!/usr/bin/env python3
 """
-Button Debug Test
+Button Debug Test using gpiozero
 """
-import RPi.GPIO as GPIO
+
+from gpiozero import Button, DigitalInputDevice
 import time
 
-GPIO.setmode(GPIO.BCM)
-GPIO.setup(14, GPIO.IN)  # No pull-up/down
+def test_button_modes():
+    """
+    Test different input configurations on GPIO14
+    """
+    print("Testing GPIO14 with gpiozero...")
+    print("=" * 40)
+    
+    try:
+        while True:
+            # Test 1: No pull-up/down (floating)
+            print("\n1. No pull-up/down (floating input):")
+            input_floating = DigitalInputDevice(14, pull_up=None)
+            time.sleep(0.1)  # Let it stabilize
+            print(f"   Value: {input_floating.value} (1=HIGH, 0=LOW)")
+            input_floating.close()
+            
+            # Test 2: With pull-down
+            print("2. With pull-down (default for Button):")
+            input_pulldown = DigitalInputDevice(14, pull_up=False)
+            time.sleep(0.1)
+            print(f"   Value: {input_pulldown.value} (expect 0 when floating)")
+            input_pulldown.close()
+            
+            # Test 3: With pull-up
+            print("3. With pull-up:")
+            input_pullup = DigitalInputDevice(14, pull_up=True)
+            time.sleep(0.1)
+            print(f"   Value: {input_pullup.value} (expect 1 when floating)")
+            input_pullup.close()
+            
+            # Test 4: Button class (has pull-up by default)
+            print("4. Using Button class (pull_up=True by default):")
+            button = Button(14)
+            print(f"   Is pressed: {button.is_pressed}")
+            print(f"   Value: {button.value}")
+            button.close()
+            
+            print("-" * 40)
+            print("Press Ctrl+C to exit")
+            print("Waiting 2 seconds...")
+            time.sleep(2)
+            
+    except KeyboardInterrupt:
+        print("\nTest completed!")
+    except Exception as e:
+        print(f"Error: {e}")
 
-print("Testing GPIO14...")
-print("Press button (connect to 3.3V) or Ctrl+C to quit")
-print("Reading value every second:")
+def interactive_button_test():
+    """
+    Interactive button testing with callbacks
+    """
+    print("\n" + "="*40)
+    print("Interactive Button Test")
+    print("="*40)
+    
+    def pressed():
+        print(">>> BUTTON PRESSED!")
+    
+    def released():
+        print(">>> BUTTON RELEASED")
+    
+    def held():
+        print(">>> BUTTON HELD (2+ seconds)")
+    
+    # Create button with event callbacks
+    button = Button(
+        14,
+        pull_up=True,      # Use internal pull-up resistor
+        bounce_time=0.05,  # Debounce time in seconds
+        hold_time=2        # Time to trigger hold event
+    )
+    
+    # Assign callback functions
+    button.when_pressed = pressed
+    button.when_released = released
+    button.when_held = held
+    
+    print(f"Button on GPIO{button.pin}")
+    print(f"Pull-up enabled: {button.pull_up}")
+    print(f"Active state: {button.active_state}")
+    print("\nTest your button:")
+    print("- Short press: Should show 'PRESSED' then 'RELEASED'")
+    print("- Hold 2+ seconds: Should show 'HELD'")
+    print("- Press Ctrl+C to exit")
+    print("="*40)
+    
+    try:
+        # Keep program running
+        while True:
+            # You could add additional monitoring here
+            time.sleep(0.1)
+    except KeyboardInterrupt:
+        print("\nExiting...")
+    finally:
+        button.close()
 
-try:
+def voltage_level_monitor():
+    """
+    Continuously monitor voltage levels
+    """
+    print("\n" + "="*40)
+    print("Continuous Voltage Level Monitor")
+    print("="*40)
+    print("Monitoring GPIO14 every 0.5 seconds")
+    print("Connect to 3.3V (HIGH), GND (LOW), or leave floating")
+    print("Press Ctrl+C to exit")
+    
+    # Use DigitalInputDevice for raw value monitoring
+    input_pin = DigitalInputDevice(14, pull_up=False)
+    
+    try:
+        last_value = None
+        while True:
+            current_value = input_pin.value
+            
+            # Only print when value changes
+            if current_value != last_value:
+                if current_value == 1:
+                    print(f"[{time.ctime()}] GPIO14: HIGH (3.3V detected)")
+                else:
+                    print(f"[{time.ctime()}] GPIO14: LOW (GND or floating)")
+                last_value = current_value
+            
+            time.sleep(0.5)
+            
+    except KeyboardInterrupt:
+        print("\nStopping monitor...")
+    finally:
+        input_pin.close()
+
+def main():
+    """
+    Main function with menu
+    """
+    print("GPIO14 Debug Test - Raspberry Pi OS")
+    print("="*50)
+    print("Connect GPIO14 to:")
+    print("  - 3.3V pin for HIGH (1)")
+    print("  - GND pin for LOW (0)")
+    print("  - Leave unconnected to test floating state")
+    print("="*50)
+    
     while True:
-        value = GPIO.input(14)
-        print(f"GPIO14 value: {value} (1=3.3V, 0=GND/floating)")
+        print("\nSelect test mode:")
+        print("1. Basic input mode tests")
+        print("2. Interactive button test with callbacks")
+        print("3. Continuous voltage monitor")
+        print("4. Run all tests")
+        print("5. Exit")
         
-        # Also test with internal pull-down
-        GPIO.setup(14, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
-        value2 = GPIO.input(14)
-        print(f"With pull-down: {value2}")
+        choice = input("\nEnter choice (1-5): ").strip()
         
-        GPIO.setup(14, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-        value3 = GPIO.input(14)
-        print(f"With pull-up: {value3}")
-        
-        print("-" * 30)
-        time.sleep(1)
-        
-        # Reset to no pull
-        GPIO.setup(14, GPIO.IN)
-        
-except KeyboardInterrupt:
-    GPIO.cleanup()
-    print("\nDone")
+        if choice == "1":
+            test_button_modes()
+        elif choice == "2":
+            interactive_button_test()
+        elif choice == "3":
+            voltage_level_monitor()
+        elif choice == "4":
+            test_button_modes()
+            interactive_button_test()
+            voltage_level_monitor()
+        elif choice == "5":
+            print("Exiting...")
+            break
+        else:
+            print("Invalid choice. Please enter 1-5.")
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+    finally:
+        print("Cleanup complete. GPIO resources released.")
