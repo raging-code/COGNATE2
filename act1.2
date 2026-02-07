@@ -10,22 +10,38 @@ BUTTON_P2 = 15       # GPIO pin for Player 2 button
 
 # Initialize components
 led = LED(LED_PIN)
-player1_button = Button(BUTTON_P1, pull_up=True)  # Active when pressed (connects to ground)
+player1_button = Button(BUTTON_P1, pull_up=True)
 player2_button = Button(BUTTON_P2, pull_up=True)
 
 # Game state variables
 game_active = False
-reaction_start_time = 0
+blinking_active = False
 winner = None
-game_locked = False  # Prevents multiple presses during reaction time
+game_locked = False
+
+def blink_start_signal():
+    """Blink LED 3 times to signal game is starting"""
+    global blinking_active
+    
+    blinking_active = True
+    print("\n" + "="*40)
+    print("GAME STARTING... DON'T PRESS WHILE BLINKING!")
+    print("="*40)
+    
+    # Blink LED 3 times
+    for i in range(3):
+        led.on()
+        time.sleep(0.3)
+        led.off()
+        time.sleep(0.3)
+        print(f"Blink {i+1}...")
+    
+    blinking_active = False
+    print("GO! Press NOW!")
 
 def start_game():
     """Start a new game round"""
     global game_active, winner, game_locked
-    
-    print("\n" + "="*40)
-    print("QUICK REACTION GAME - GET READY!")
-    print("="*40)
     
     # Reset game state
     game_active = False
@@ -33,60 +49,112 @@ def start_game():
     game_locked = False
     led.off()
     
-    # Random wait before starting (1-5 seconds)
-    wait_time = random.uniform(1, 5)
-    print(f"Waiting {wait_time:.1f} seconds...")
+    # Wait a random time before blinking (0.5-2 seconds)
+    wait_time = random.uniform(0.5, 2)
     time.sleep(wait_time)
     
-    # Start the game
+    # Blink to indicate game is starting
+    blink_start_signal()
+    
+    # Random wait after blinking before turning LED on (0.5-3 seconds)
+    reaction_wait = random.uniform(0.5, 3)
+    time.sleep(reaction_wait)
+    
+    # Start the actual reaction test
     game_active = True
-    game_locked = False  # Allow button presses
+    game_locked = False
     led.on()
-    print("GO! Press your button NOW!")
-    print("-" * 40)
+    print("LED IS ON! REACT NOW!")
+
+def check_blinking_press(player):
+    """Check if player pressed during blinking phase"""
+    if blinking_active:
+        print(f"\n⚠️  {player} pressed TOO EARLY!")
+        print(f"⚠️  {player} LOSES this round!")
+        return True
+    return False
 
 def player1_pressed():
     """Handle Player 1 button press"""
     global winner, game_locked
     
+    # Check if pressed during blinking
+    if check_blinking_press("PLAYER 1"):
+        end_game_with_penalty("PLAYER 1")
+        return
+    
+    # Normal game press
     if game_active and not game_locked:
-        game_locked = True  # Lock game to prevent other player
-        winner = "Player 1"
+        game_locked = True
+        winner = "PLAYER 1"
         end_game()
 
 def player2_pressed():
     """Handle Player 2 button press"""
     global winner, game_locked
     
+    # Check if pressed during blinking
+    if check_blinking_press("PLAYER 2"):
+        end_game_with_penalty("PLAYER 2")
+        return
+    
+    # Normal game press
     if game_active and not game_locked:
-        game_locked = True  # Lock game to prevent other player
-        winner = "Player 2"
+        game_locked = True
+        winner = "PLAYER 2"
         end_game()
 
+def end_game_with_penalty(loser):
+    """Handle when player presses during blinking"""
+    global game_active
+    
+    game_active = False
+    game_locked = True
+    
+    # Determine winner based on who lost
+    if loser == "PLAYER 1":
+        actual_winner = "PLAYER 2"
+    else:
+        actual_winner = "PLAYER 1"
+    
+    # Flash LED rapidly to indicate penalty
+    for _ in range(5):
+        led.on()
+        time.sleep(0.1)
+        led.off()
+        time.sleep(0.1)
+    
+    print(f"\n❌ {loser} PRESSED DURING BLINKING!")
+    print(f"✅ {actual_winner} WINS BY DEFAULT!")
+    print("-" * 40)
+    
+    # Wait before next round
+    time.sleep(2)
+    start_game()
+
 def end_game():
-    """End the current game round and display results"""
+    """End the current game round with normal winner"""
     global game_active
     
     if winner:
-        # Turn off LED
         led.off()
         
         # Display winner
         print(f"\n🎉 WINNER: {winner} 🎉")
-        print(f"🎮 {winner} pressed first!")
+        print(f"⚡ {winner} has the fastest reaction!")
         
-        # Flash LED for winner
+        # Victory flash for winner
         for _ in range(3):
             led.on()
-            time.sleep(0.2)
+            time.sleep(0.15)
             led.off()
-            time.sleep(0.2)
+            time.sleep(0.15)
     
     game_active = False
     
     # Wait before next round
-    print("\nNext round starting in 3 seconds...")
-    time.sleep(3)
+    print("\nNext round starting in 2 seconds...")
+    time.sleep(2)
     
     # Start new game
     start_game()
@@ -97,30 +165,29 @@ player2_button.when_pressed = player2_pressed
 
 def main():
     """Main game function"""
-    print("\n" + "="*40)
-    print("QUICK REACTION GAME")
-    print("="*40)
-    print("INSTRUCTIONS:")
-    print("1. Two players stand ready with buttons")
-    print("2. LED will turn ON randomly")
-    print("3. First player to press their button WINS!")
-    print("4. Game auto-resets after each round")
-    print("="*40)
-    print("\nGame starting in 3 seconds...")
-    
-    # Wait for players to get ready
-    time.sleep(3)
-    
-    # Start first game
-    start_game()
+    print("\n" + "="*50)
+    print("        QUICK REACTION GAME - BLINK VERSION")
+    print("="*50)
+    print("🎮 INSTRUCTIONS:")
+    print("   1. Watch for 3 LED blinks - DON'T PRESS during blinks!")
+    print("   2. After blinks, wait for LED to turn ON")
+    print("   3. First to press after LED turns ON WINS!")
+    print("   4. Pressing during blinks = AUTOMATIC LOSS")
+    print("="*50)
+    print("\nWaiting for players to get ready...")
+    print("Game will start automatically...")
     
     try:
+        # Start first game
+        time.sleep(1)
+        start_game()
+        
         # Keep the program running
         while True:
             time.sleep(0.1)
     except KeyboardInterrupt:
-        print("\n\nGame stopped by user")
-        print("Thanks for playing!")
+        print("\n\n🛑 Game stopped by user")
+        print("👋 Thanks for playing!")
         led.off()
         sys.exit(0)
 
