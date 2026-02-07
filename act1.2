@@ -1,0 +1,128 @@
+from gpiozero import LED, Button
+import time
+import random
+import sys
+
+# Set up GPIO pins
+LED_PIN = 4          # GPIO pin for LED
+BUTTON_P1 = 14       # GPIO pin for Player 1 button
+BUTTON_P2 = 15       # GPIO pin for Player 2 button
+
+# Initialize components
+led = LED(LED_PIN)
+player1_button = Button(BUTTON_P1, pull_up=True)  # Active when pressed (connects to ground)
+player2_button = Button(BUTTON_P2, pull_up=True)
+
+# Game state variables
+game_active = False
+reaction_start_time = 0
+winner = None
+game_locked = False  # Prevents multiple presses during reaction time
+
+def start_game():
+    """Start a new game round"""
+    global game_active, winner, game_locked
+    
+    print("\n" + "="*40)
+    print("QUICK REACTION GAME - GET READY!")
+    print("="*40)
+    
+    # Reset game state
+    game_active = False
+    winner = None
+    game_locked = False
+    led.off()
+    
+    # Random wait before starting (1-5 seconds)
+    wait_time = random.uniform(1, 5)
+    print(f"Waiting {wait_time:.1f} seconds...")
+    time.sleep(wait_time)
+    
+    # Start the game
+    game_active = True
+    game_locked = False  # Allow button presses
+    led.on()
+    print("GO! Press your button NOW!")
+    print("-" * 40)
+
+def player1_pressed():
+    """Handle Player 1 button press"""
+    global winner, game_locked
+    
+    if game_active and not game_locked:
+        game_locked = True  # Lock game to prevent other player
+        winner = "Player 1"
+        end_game()
+
+def player2_pressed():
+    """Handle Player 2 button press"""
+    global winner, game_locked
+    
+    if game_active and not game_locked:
+        game_locked = True  # Lock game to prevent other player
+        winner = "Player 2"
+        end_game()
+
+def end_game():
+    """End the current game round and display results"""
+    global game_active
+    
+    if winner:
+        # Turn off LED
+        led.off()
+        
+        # Display winner
+        print(f"\n🎉 WINNER: {winner} 🎉")
+        print(f"🎮 {winner} pressed first!")
+        
+        # Flash LED for winner
+        for _ in range(3):
+            led.on()
+            time.sleep(0.2)
+            led.off()
+            time.sleep(0.2)
+    
+    game_active = False
+    
+    # Wait before next round
+    print("\nNext round starting in 3 seconds...")
+    time.sleep(3)
+    
+    # Start new game
+    start_game()
+
+# Set up button event handlers
+player1_button.when_pressed = player1_pressed
+player2_button.when_pressed = player2_pressed
+
+def main():
+    """Main game function"""
+    print("\n" + "="*40)
+    print("QUICK REACTION GAME")
+    print("="*40)
+    print("INSTRUCTIONS:")
+    print("1. Two players stand ready with buttons")
+    print("2. LED will turn ON randomly")
+    print("3. First player to press their button WINS!")
+    print("4. Game auto-resets after each round")
+    print("="*40)
+    print("\nGame starting in 3 seconds...")
+    
+    # Wait for players to get ready
+    time.sleep(3)
+    
+    # Start first game
+    start_game()
+    
+    try:
+        # Keep the program running
+        while True:
+            time.sleep(0.1)
+    except KeyboardInterrupt:
+        print("\n\nGame stopped by user")
+        print("Thanks for playing!")
+        led.off()
+        sys.exit(0)
+
+if __name__ == "__main__":
+    main()
