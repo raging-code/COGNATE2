@@ -1,139 +1,34 @@
 #!/usr/bin/env python3
 """
-Activity 1: LED Sequence Control - External Pull-up Resistor
+ULTRA-SIMPLE BUTTON TEST
+Connect button between GPIO14 and 3.3V
 """
 
 from gpiozero import Button, LED
 import time
-from signal import pause
 
-# ========== GPIO PIN SETUP ==========
-BUTTON_PIN = 14      # GPIO14 for button
-GREEN_LED_PIN = 15   # GPIO15 for green LED  
-YELLOW_LED_PIN = 16  # GPIO16 for yellow LED
-RED_LED_PIN = 17     # GPIO17 for red LED
+# Create button with NO pull-up/down
+button = Button(14, pull_up=None)
+led = LED(15)  # Simple test LED
 
-# Timing constants
-YELLOW_TIME = 3      # 3 seconds
-RED_TIME = 10        # 10 seconds
+print("Testing button connection...")
+print("Button should connect GPIO14 to 3.3V")
+print("Press button to blink LED, Ctrl+C to quit")
 
-# ========== INITIALIZE COMPONENTS ==========
-print("Initializing GPIO components...")
+led.on()
 
-# IMPORTANT: No internal pull-up, active_state is True when button is pressed (connects to GND)
-button = Button(BUTTON_PIN, pull_up=False, bounce_time=0.3)
-
-green = LED(GREEN_LED_PIN)
-yellow = LED(YELLOW_LED_PIN)
-red = LED(RED_LED_PIN)
-
-# ========== LED CONTROL FUNCTIONS ==========
-def all_leds_off():
-    """Turn off all LEDs"""
-    green.off()
-    yellow.off()
-    red.off()
-
-def green_on():
-    """Turn on green LED only"""
-    all_leds_off()
-    green.on()
-    print("Green LED ON")
-
-def yellow_on():
-    """Turn on yellow LED only"""
-    all_leds_off()
-    yellow.on()
-    print("Yellow LED ON")
-
-def red_on():
-    """Turn on red LED only"""
-    all_leds_off()
-    red.on()
-    print("Red LED ON")
-
-# ========== SEQUENCE FUNCTION ==========
-sequence_running = False
-
-def run_sequence():
-    """Run the complete LED sequence"""
-    global sequence_running
-    
-    if sequence_running:
-        return
-    
-    sequence_running = True
-    print("\n" + "="*40)
-    print("STARTING SEQUENCE")
-    print("="*40)
-    
-    # Step 1: Yellow for 3 seconds
-    yellow_on()
-    print(f"Yellow LED: {YELLOW_TIME} seconds")
-    for i in range(YELLOW_TIME, 0, -1):
-        print(f"  {i}...")
-        time.sleep(1)
-    
-    # Step 2: Red for 10 seconds
-    red_on()
-    print(f"\nRed LED: {RED_TIME} seconds")
-    for i in range(RED_TIME, 0, -1):
-        print(f"  {i}...")
-        time.sleep(1)
-    
-    # Step 3: Back to green
-    green_on()
-    print("\n✓ Sequence complete!")
-    print("Ready for next button press")
-    print("="*40 + "\n")
-    
-    sequence_running = False
-
-# ========== BUTTON HANDLER ==========
-def button_pressed():
-    """Handle button press event"""
-    print("Button pressed - Starting sequence")
-    run_sequence()
-
-# ========== MAIN PROGRAM ==========
-def main():
-    print("="*50)
-    print("LED SEQUENCE CONTROLLER - External Pull-up")
-    print("="*50)
-    print("GPIO Pins:")
-    print(f"  Button: GPIO{BUTTON_PIN} (with external 10kΩ pull-up)")
-    print(f"  Green LED: GPIO{GREEN_LED_PIN}")
-    print(f"  Yellow LED: GPIO{YELLOW_LED_PIN}")
-    print(f"  Red LED: GPIO{RED_LED_PIN}")
-    print("="*50)
-    print("Wiring: 3.3V → 10kΩ → GPIO14 → Button → GND")
-    print("="*50)
-    
-    # Set initial state
-    green_on()
-    print("\nSystem ready!")
-    print("Press the button to start sequence...")
-    
-    # Set button event
-    button.when_pressed = button_pressed
-    
-    # Add button release event for debugging
-    def button_released():
-        print("Button released")
-    
-    button.when_released = button_released
-    
-    try:
-        # Keep program running
-        pause()
-    except KeyboardInterrupt:
-        print("\n\nProgram stopped by user")
-    finally:
-        # Cleanup
-        all_leds_off()
-        print("All LEDs turned off")
-        print("Goodbye!")
-
-# ========== START PROGRAM ==========
-if __name__ == "__main__":
-    main()
+try:
+    while True:
+        if button.is_pressed:
+            print("✓ Button PRESSED")
+            led.off()
+            time.sleep(0.2)
+            led.on()
+            # Wait for button release
+            while button.is_pressed:
+                time.sleep(0.01)
+            print("Button released")
+        time.sleep(0.05)
+except KeyboardInterrupt:
+    led.off()
+    print("\nTest complete")
