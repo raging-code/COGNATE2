@@ -1,143 +1,90 @@
-# ssd1306.py - Full MicroPython SSD1306 driver
-# Save this in the same folder as your main script
-
+from machine import Pin, I2C
 import time
-import framebuf
 
-# Register definitions
-SET_CONTRAST = 0x81
-SET_ENTIRE_ON = 0xA4
-SET_NORM_INV = 0xA6
-SET_DISP = 0xAE
-SET_MEM_ADDR = 0x20
-SET_COL_ADDR = 0x21
-SET_PAGE_ADDR = 0x22
-SET_DISP_START_LINE = 0x40
-SET_SEG_REMAP = 0xA0
-SET_MUX_RATIO = 0xA8
-SET_COM_OUT_DIR = 0xC0
-SET_DISP_OFFSET = 0xD3
-SET_COM_PIN_CFG = 0xDA
-SET_DISP_CLK_DIV = 0xD5
-SET_PRECHARGE = 0xD9
-SET_VCOM_DETECT = 0xDB
-SET_CHARGE_PUMP = 0x8D
-
+# SSD1306 I2C addresses
+SSD1306_I2C_ADDRESS = 0x3C  # or 0x3D
 
 class SSD1306:
-    def __init__(self, width, height, external_vcc):
+    def __init__(self, width, height, i2c, addr=SSD1306_I2C_ADDRESS):
         self.width = width
         self.height = height
-        self.external_vcc = external_vcc
-        self.pages = self.height // 8
-        self.buffer = bytearray(self.pages * self.width)
-        self.framebuf = framebuf.FrameBuffer(self.buffer, self.width, self.height, framebuf.MONO_VLSB)
-        self.poweron()
-        self.init_display()
-
-    def init_display(self):
-        for cmd in (
-            SET_DISP | 0x00,  # off
-            SET_MEM_ADDR, 0x00,  # horizontal
-            SET_DISP_START_LINE | 0x00,
-            SET_SEG_REMAP | 0x01,  # column addr 127 mapped to SEG0
-            SET_MUX_RATIO, self.height - 1,
-            SET_COM_OUT_DIR | 0x08,  # scan from COM[N] to COM0
-            SET_DISP_OFFSET, 0x00,
-            SET_COM_PIN_CFG, 0x02 if self.height == 32 else 0x12,
-            SET_DISP_CLK_DIV, 0x80,
-            SET_PRECHARGE, 0x22 if self.external_vcc else 0xF1,
-            SET_VCOM_DETECT, 0x40,
-            SET_CHARGE_PUMP, 0x10 if self.external_vcc else 0x14,
-            SET_ENTIRE_ON | 0x00,  # resume to RAM content display
-            SET_NORM_INV | 0x00,  # not inverted
-            SET_CONTRAST, 0xFF,  # maximum
-            SET_DISP | 0x01,  # on
-        ):
-            self.write_cmd(cmd)
-        self.fill(0)
-        self.show()
-
-    def poweroff(self):
-        self.write_cmd(SET_DISP | 0x00)
-
-    def poweron(self):
-        self.write_cmd(SET_DISP | 0x01)
-
-    def contrast(self, contrast):
-        self.write_cmd(SET_CONTRAST)
-        self.write_cmd(contrast)
-
-    def invert(self, invert):
-        self.write_cmd(SET_NORM_INV | (invert & 1))
-
-    def show(self):
-        x0 = 0
-        x1 = self.width - 1
-        if self.width == 64:
-            x0 += 32
-            x1 += 32
-        self.write_cmd(SET_COL_ADDR)
-        self.write_cmd(x0)
-        self.write_cmd(x1)
-        self.write_cmd(SET_PAGE_ADDR)
-        self.write_cmd(0)
-        self.write_cmd(self.pages - 1)
-        self.write_data(self.buffer)
-
-    def fill(self, col):
-        self.framebuf.fill(col)
-
-    def pixel(self, x, y, col):
-        self.framebuf.pixel(x, y, col)
-
-    def scroll(self, dx, dy):
-        self.framebuf.scroll(dx, dy)
-
-    def text(self, string, x, y, col=1):
-        self.framebuf.text(string, x, y, col)
-
-
-class SSD1306_I2C(SSD1306):
-    def __init__(self, width, height, i2c, addr=0x3C, external_vcc=False):
         self.i2c = i2c
         self.addr = addr
-        self.temp = bytearray(2)
-        super().__init__(width, height, external_vcc)
-
+        self.buffer = bytearray((height // 8) * width)
+        self.init_display()
+    
     def write_cmd(self, cmd):
-        self.temp[0] = 0x80  # Co=1, D/C#=0
-        self.temp[1] = cmd
-        self.i2c.writeto(self.addr, self.temp)
+        self.i2c.writeto(self.addr, bytes([0x00, cmd]))
+    
+    def write_data(self, data):
+        self.i2c.writeto(self.addr, b'\x40' + data)
+    
+    def init_display(self):
+        # Initialization sequence
+        cmds = [
+            0xAE,  # Display off
+            0xD5, 0x80,  # Set display clock divide
+            0xA8, 0x3F,  # Set multiplex
+            0xD3, 0x00,  # Set display offset
+            0x40,  # Set start line
+            0x8D, 0x14,  # Charge pump
+            0x20, 0x00,  # Memory mode
+            0xA1,  # Segment remap
+            0xC8,  # COM scan direction
+            0xDA, 0x12,  # COM pins
+            0x81, 0xCF,  # Contrast
+            0xD9, 0xF1,  # Pre-charge
+            0xDB, 0x40,  # VCOM detect
+            0xA4,  # Display all on resume
+            0xA6,  # Normal display
+            0x2E,  # Deactivate scroll
+            0xAF   # Display on
+        ]
+        for cmd in cmds:
+            self.write_cmd(cmd)
+    
+    def pixel(self, x, y, color):
+        if 0 <= x < self.width and 0 <= y < self.height:
+            page = y // 8
+            bit = y % 8
+            index = page * self.width + x
+            if color:
+                self.buffer[index] |= (1 << bit)
+            else:
+                self.buffer[index] &= ~(1 << bit)
+    
+    def show(self):
+        for i in range(0, len(self.buffer), 16):
+            self.write_data(self.buffer[i:i+16])
+    
+    def fill(self, color):
+        self.buffer = bytearray([0xFF if color else 0x00] * len(self.buffer))
+    
+    def text(self, string, x, y, color=1):
+        # Simple 8x8 font implementation
+        font = [
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  # Space
+            0x00, 0x00, 0x5F, 0x00, 0x00, 0x00, 0x00, 0x00,  # !
+            # Add more characters as needed
+        ]
+        for char in string:
+            for i in range(8):
+                line = font[ord(char) * 8 + i] if ord(char) < len(font)//8 else 0
+                for j in range(8):
+                    if line & (1 << j):
+                        self.pixel(x + j, y + i, color)
+            x += 8
 
-    def write_data(self, buf):
-        self.i2c.writeto(self.addr, b"\x40" + buf)
+# Usage example
+i2c = I2C(0, scl=Pin(22), sda=Pin(21), freq=400000)
+oled = SSD1306(128, 64, i2c)
 
+# Clear display
+oled.fill(0)
 
-class SSD1306_SPI(SSD1306):
-    def __init__(self, width, height, spi, dc, res, cs, external_vcc=False):
-        self.rate = 10 * 1024 * 1024
-        dc.init(dc.OUT, value=0)
-        res.init(res.OUT, value=0)
-        cs.init(cs.OUT, value=1)
-        self.spi = spi
-        self.dc = dc
-        self.res = res
-        self.cs = cs
-        super().__init__(width, height, external_vcc)
+# Draw something
+oled.text("Hello", 0, 0, 1)
+oled.text("World", 0, 8, 1)
 
-    def write_cmd(self, cmd):
-        self.spi.init(baudrate=self.rate, polarity=0, phase=0)
-        self.cs.high()
-        self.dc.low()
-        self.cs.low()
-        self.spi.write(bytearray([cmd]))
-        self.cs.high()
-
-    def write_data(self, buf):
-        self.spi.init(baudrate=self.rate, polarity=0, phase=0)
-        self.cs.high()
-        self.dc.high()
-        self.cs.low()
-        self.spi.write(buf)
-        self.cs.high()
+# Update display
+oled.show()
