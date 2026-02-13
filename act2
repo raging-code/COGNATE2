@@ -1,0 +1,125 @@
+from gpiozero import PWMLED, Button
+from signal import pause
+import time
+import smbus2
+import ssd1306
+from PIL import Image, ImageDraw, ImageFont
+import max30102  # You'll need to install this library
+
+# Initialize I2C
+bus = smbus2.SMBus(1)  # Using I2C bus 1
+
+# Initialize OLED Display (typically 128x64, I2C address 0x3C)
+oled = ssd1306.SSD1306_I2C(128, 64, bus)
+
+# Initialize MAX30102 sensor
+sensor = max3012.MAX30102()  # Adjust based on your library
+
+# Initialize buzzer using PWM (GPIO 17)
+buzzer = PWMLED(17)  # PWMLED can be used for PWM output
+
+# Initialize button (GPIO 27 with pull-up)
+silence_button = Button(27, pull_up=True)
+
+# Global variables
+alarm_active = False
+heart_rate = 0
+sensor_running = True
+
+def display_message(line1, line2="", line3=""):
+    """Display data on OLED"""
+    oled.fill(0)
+    oled.text("Heart Rate Monitor", 0, 0, 1)
+    oled.text(line1, 0, 20, 1)
+    oled.text(line2, 0, 35, 1)
+    oled.text(line3, 0, 50, 1)
+    oled.show()
+
+def buzzer_alarm():
+    """Activate buzzer alarm"""
+    if alarm_active:
+        buzzer.value = 0.5  # 50% duty cycle
+        time.sleep(0.1)
+        buzzer.value = 0
+        time.sleep(0.1)
+        buzzer.value = 0.5
+        time.sleep(0.1)
+        buzzer.value = 0
+        time.sleep(0.5)
+
+def silence_alarm():
+    """Callback function to silence the buzzer"""
+    global alarm_active
+    print("Alarm silenced!")
+    alarm_active = False
+    buzzer.value = 0  # Turn off buzzer
+    display_message("Buzzer silenced", f"HR: {heart_rate}bpm", "Press to reset")
+
+def calculate_heart_rate():
+    """Calculate heart rate from sensor data"""
+    # This is a simplified version
+    # You'll need to implement proper heart rate calculation algorithm
+    try:
+        # Read sensor data
+        red, ir = sensor.read_sequential()
+        
+        # Calculate heart rate (simplified - you need actual algorithm)
+        # For demonstration, we'll use a simulated value
+        hr = 75  # Replace with actual calculation
+        
+        return hr
+    except:
+        return 0
+
+# Set up button event
+silence_button.when_pressed = silence_alarm
+
+def main():
+    global heart_rate, alarm_active, sensor_running
+    
+    print("Heart Rate Monitor Started")
+    display_message("Initializing...", "MAX30102", "Please wait")
+    time.sleep(2)
+    
+    try:
+        while sensor_running:
+            # Read heart rate
+            heart_rate = calculate_heart_rate()
+            
+            # Clear display and show current reading
+            display_message(f"HR: {heart_rate}bpm", 
+                          "High HR >100bpm" if heart_rate > 100 else "Normal HR",
+                          "Press button to silence" if alarm_active else "")
+            
+            # Check if heart rate exceeds 100bpm
+            if heart_rate > 100 and heart_rate > 0:
+                if not alarm_active:
+                    print(f"High heart rate detected: {heart_rate}bpm")
+                    alarm_active = True
+                
+                # Sound alarm if active
+                if alarm_active:
+                    buzzer_alarm()
+            else:
+                if alarm_active:
+                    alarm_active = False
+                    buzzer.value = 0  # Ensure buzzer is off
+                    display_message(f"HR: {heart_rate}bpm", "Back to normal", "")
+            
+            time.sleep(1)  # Update every second
+            
+    except KeyboardInterrupt:
+        print("\nProgram stopped by user")
+    except Exception as e:
+        print(f"Error: {e}")
+    finally:
+        # Cleanup
+        sensor_running = False
+        buzzer.value = 0
+        oled.fill(0)
+        oled.text("Sensor stopped!", 0, 25, 1)
+        oled.show()
+        print("Sensor stopped!")
+
+if __name__ == "__main__":
+    main()
